@@ -1,3 +1,21 @@
 # HTG Dash: atualizações
 
-Releases lidas pelo app HTG Atualizações das centrais K4811 com a ROM HTG: uma vez por semana ele baixa o `ota.json` da última release, confere a assinatura e pergunta antes de instalar apps ou a ROM.
+Apps do HTG Dash e ROMs HTG para a central K4811, lidos pelo app **HTG Atualizações** (procura uma vez por semana).
+
+Última publicação: [ota-2026.11.04-1713](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/tag/ota-2026.11.04-1713)
+
+## Apps
+
+| App | Versão | Pacote | Baixar |
+|---|---|---|---|
+| HTG Dash | 1.3.2 | `com.htg.dash.nwd.launcher` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.04-1713/com.htg.dash.nwd.launcher-6.apk) |
+| HTG Player | 0.2 | `com.htg.dash.nwd.player` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.04-1713/com.htg.dash.nwd.player-2.apk) |
+| HTG Atualizações | 1.1 | `com.htg.dash.nwd.updater` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.04-1713/com.htg.dash.nwd.updater-2.apk) |
+| Diagnóstico K4811 | 1.3 | `com.k4811.diag` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.04-1713/com.k4811.diag-4.apk) |
+| Equalizador | 2.0.2 | `com.nwd.audioset` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.04-1713/com.nwd.audioset-20270002.apk) |
+
+## ROMs
+
+Nenhuma ROM publicada por aqui ainda (a ROM é gravada pelo pen drive na primeira vez).
+
+Tudo é conferido pela central: o `ota.json` tem assinatura (`ota.json.sig`) e cada arquivo o seu SHA-256. Nada é instalado sem tocar em **Confirmar update**.
