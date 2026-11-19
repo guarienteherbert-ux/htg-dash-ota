@@ -1,0 +1,58 @@
+# Base de radares do HTG Dash (OpenStreetMap, ODbL, © colaboradores do OpenStreetMap), gerada aqui no GitHub uma vez
+# por semana: as centrais baixam releases/download/radares/radares-br.csv.gz sozinhas, sem depender de nenhum computador.
+name: Base de radares
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'      # toda segunda, 06:00 UTC (03:00 em Brasília)
+  workflow_dispatch:          # e quando rodar à mão (aba Actions)
+
+permissions:
+  contents: write             # publicar o arquivo na release "radares"
+
+concurrency:
+  group: radares
+  cancel-in-progress: false
+
+jobs:
+  gerar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # Estados já baixados nesta semana ficam guardados: se o servidor do OpenStreetMap cair no meio, a próxima
+      # tentativa continua de onde parou.
+      - uses: actions/cache@v4
+        with:
+          path: saida/por_estado
+          key: radares-${{ github.run_id }}
+          restore-keys: radares-
+
+      - name: Baixar os radares (estado por estado)
+        run: |
+          mkdir -p saida
+          find saida/por_estado -name '*.json' -mtime +6 -delete 2>/dev/null || true
+          python3 -I tools/gera_radares.py saida/radares-br.csv.gz
+
+      - name: Conferir
+        run: |
+          n=$(zcat saida/radares-br.csv.gz | grep -vc '^#')
+          echo "radares: $n"
+          # base muito pequena = algo deu errado (não publica por cima da boa)
+          test "$n" -gt 5000
+
+      - name: Publicar na release "radares"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # pré-lançamento e --latest=false: a "release mais recente" tem de continuar sendo a da OTA (o HTG
+          # Atualizações lê releases/latest/download/ota.json)
+          gh release view radares >/dev/null 2>&1 || gh release create radares --prerelease --latest=false --title "Base de radares" \
+            --notes "Radares do Brasil (OpenStreetMap, ODbL, © colaboradores do OpenStreetMap). Gerada toda semana pelo GitHub Actions; o HTG Dash baixa sozinho."
+          gh release upload radares saida/radares-br.csv.gz --clobber
+          echo "publicado: $(date -u +%F)"
