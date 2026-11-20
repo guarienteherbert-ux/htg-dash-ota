@@ -2,9 +2,10 @@
 """Gera a base de radares do Brasil para o aviso do HTG Dash, a partir do OpenStreetMap (ODbL, © colaboradores do
 OpenStreetMap). Baixa estado por estado pelo Overpass (o Brasil inteiro estoura o tempo do servidor público).
 
-Saída: CSV comprimido (gzip), uma linha por radar:  lat,lon,limite,direcao
+Saída: CSV comprimido (gzip), uma linha por radar:  lat,lon,limite,direcao,tipo
   limite  = km/h (0 = não informado)
   direcao = rumo em graus (0 = norte) do trânsito que o radar fiscaliza; -1 = os dois sentidos/desconhecido
+  tipo    = 0 radar de velocidade (inclui lombada eletrônica), 1 câmera de semáforo (avanço de sinal vermelho)
 A direção vem da tag direction do radar (graus, N/NE..., forward/backward em relação à rua) ou, sem ela, da rua de mão
 única onde o radar está (oneway=yes / -1). O limite vem do radar (maxspeed) ou da rua (maxspeed, :forward/:backward).
 
@@ -54,10 +55,18 @@ def speed(v):
 
 
 def uf(sigla):
+    # radares (nós) + fiscalização de semáforo (relações type=enforcement com o equipamento no papel "device")
     q = (f'[out:json][timeout:240];area["ISO3166-2"="BR-{sigla}"]->.a;'
-         f'node["highway"="speed_camera"](area.a)->.c;.c out body;way(bn.c)["highway"];out geom;')
+         f'node["highway"="speed_camera"](area.a)->.c;'
+         f'rel["type"="enforcement"]["enforcement"~"traffic_signals|red_light"](area.a)->.r;'
+         f'node(r.r:"device")->.rd;(.c;.rd;)->.all;.all out body;.r out body;way(bn.all)["highway"];out geom;')
     d = overpass(q)
     nodes = {e['id']: e for e in d['elements'] if e['type'] == 'node'}
+    semaforo = set()
+    for r in (e for e in d['elements'] if e['type'] == 'relation'):
+        for m in r.get('members', []):
+            if m.get('type') == 'node' and m.get('role') == 'device':
+                semaforo.add(m['ref'])
     ways = [e for e in d['elements'] if e['type'] == 'way']
     on_way = {}  # radar -> (way, índice na geometria)
     for w in ways:
@@ -101,7 +110,9 @@ def uf(sigla):
                     fwd = abs(((direc - seg + 180) % 360) - 180) < 90
                     lim = speed(wt.get('maxspeed:forward' if fwd else 'maxspeed:backward'))
                 lim = lim or speed(wt.get('maxspeed'))
-        out.append((round(n['lat'], 6), round(n['lon'], 6), lim, -1 if direc < 0 else int(round(direc)) % 360))
+        tipo = 1 if (nid in semaforo or t.get('enforcement') in ('red_light_camera', 'traffic_signals')
+                     or t.get('speed_camera') in ('traffic_signals', 'red_light_camera')) else 0
+        out.append((round(n['lat'], 6), round(n['lon'], 6), lim, -1 if direc < 0 else int(round(direc)) % 360, tipo))
     return out
 
 
@@ -113,7 +124,7 @@ def main():
     cache = os.path.join(os.path.dirname(os.path.abspath(dest)), 'por_estado')
     os.makedirs(cache, exist_ok=True)
     for s in ufs:
-        cf = os.path.join(cache, s + '.json')
+        cf = os.path.join(cache, 'v2_' + s + '.json')  # v2: com o tipo (0 velocidade, 1 semáforo)
         if os.path.isfile(cf):  # já baixado (o script continua de onde parou)
             r = [tuple(x) for x in json.load(open(cf))]
             print(f'{s}: {len(r)} radares (já baixado)', flush=True)
@@ -141,8 +152,8 @@ def main():
     total = sorted(set(total))
     with gzip.open(dest, 'wt', encoding='ascii') as f:
         f.write('# radares OpenStreetMap (ODbL, (c) colaboradores do OpenStreetMap) ' + time.strftime('%Y-%m-%d') + '\n')
-        for la, lo, lim, d in total:
-            f.write(f'{la},{lo},{lim},{d}\n')
+        for la, lo, lim, d, tipo in total:
+            f.write(f'{la},{lo},{lim},{d},{tipo}\n')
     print(f'total: {len(total)} radares -> {dest}')
 
 
