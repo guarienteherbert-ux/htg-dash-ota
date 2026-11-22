@@ -2,10 +2,11 @@
 """Gera a base de radares do Brasil para o aviso do HTG Dash, a partir do OpenStreetMap (ODbL, © colaboradores do
 OpenStreetMap). Baixa estado por estado pelo Overpass (o Brasil inteiro estoura o tempo do servidor público).
 
-Saída: CSV comprimido (gzip), uma linha por radar:  lat,lon,limite,direcao,tipo
+Saída: CSV comprimido (gzip), uma linha por radar:  lat,lon,limite,direcao,tipo,eixo
   limite  = km/h (0 = não informado)
   direcao = rumo em graus (0 = norte) do trânsito que o radar fiscaliza; -1 = os dois sentidos/desconhecido
   tipo    = 0 radar de velocidade (inclui lombada eletrônica), 1 câmera de semáforo (avanço de sinal vermelho)
+  eixo    = rumo da rua no ponto do radar (graus; -1 sem a rua): o app só avisa se a rua do carro estiver alinhada
 A direção vem da tag direction do radar (graus, N/NE..., forward/backward em relação à rua) ou, sem ela, da rua de mão
 única onde o radar está (oneway=yes / -1). O limite vem do radar (maxspeed) ou da rua (maxspeed, :forward/:backward).
 
@@ -122,7 +123,8 @@ def processa(d, so_semaforo=False):
                 lim = lim or speed(wt.get('maxspeed'))
         tipo = 1 if (so_semaforo or nid in semaforo or t.get('enforcement') in ('red_light_camera', 'traffic_signals')
                      or t.get('speed_camera') in ('traffic_signals', 'red_light_camera')) else 0
-        out.append((round(n['lat'], 6), round(n['lon'], 6), lim, -1 if direc < 0 else int(round(direc)) % 360, tipo))
+        eixo = -1 if seg is None else int(round(seg)) % 360  # rumo da rua no ponto do radar (o app confere a rua)
+        out.append((round(n['lat'], 6), round(n['lon'], 6), lim, -1 if direc < 0 else int(round(direc)) % 360, tipo, eixo))
     return out
 
 
@@ -140,7 +142,7 @@ def main():
         if prazo and time.time() - inicio > prazo:
             print(f'prazo esgotado antes de {s}: o que já veio está guardado, continua na próxima execução', flush=True)
             sys.exit(3)
-        cf = os.path.join(cache, 'v3_' + s + '.json')  # v3: tipo (0 velocidade, 1 semáforo); semáforos numa consulta só
+        cf = os.path.join(cache, 'v4_' + s + '.json')  # v4: + eixo da rua; semáforos numa consulta só
         if os.path.isfile(cf):  # já baixado (o script continua de onde parou)
             r = [tuple(x) for x in json.load(open(cf))]
             print(f'{s}: {len(r)} radares (já baixado)', flush=True)
@@ -167,16 +169,17 @@ def main():
         sys.exit('faltaram %s (rode de novo mais tarde; os outros estados já estão guardados)' % ' '.join(faltam))
     # o mesmo ponto pode vir como radar e como câmera de semáforo: fica uma linha, com o tipo semáforo
     pontos = {}
-    for la, lo, lim, d, tipo in (tuple(x) for x in total):
+    for la, lo, lim, d, tipo, eixo in (tuple(x) for x in total):
         k = (la, lo)
         old = pontos.get(k)
         if old is None or tipo > old[4] or (tipo == old[4] and lim > old[2]):
-            pontos[k] = (la, lo, max(lim, old[2] if old else 0), d if d >= 0 or old is None else old[3], tipo)
+            pontos[k] = (la, lo, max(lim, old[2] if old else 0), d if d >= 0 or old is None else old[3], tipo,
+                         eixo if eixo >= 0 or old is None else old[5])
     total = sorted(pontos.values())
     with gzip.open(dest, 'wt', encoding='ascii') as f:
         f.write('# radares OpenStreetMap (ODbL, (c) colaboradores do OpenStreetMap) ' + time.strftime('%Y-%m-%d') + '\n')
-        for la, lo, lim, d, tipo in total:
-            f.write(f'{la},{lo},{lim},{d},{tipo}\n')
+        for la, lo, lim, d, tipo, eixo in total:
+            f.write(f'{la},{lo},{lim},{d},{tipo},{eixo}\n')
     print(f'total: {len(total)} radares -> {dest}')
 
 
