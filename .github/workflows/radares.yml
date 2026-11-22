@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: write             # publicar o arquivo na release "radares"
+  actions: write              # se o prazo acabar, agendar a continuação
 
 concurrency:
   group: radares
@@ -25,21 +26,41 @@ jobs:
         with:
           python-version: '3.12'
 
-      # Estados já baixados nesta semana ficam guardados: se o servidor do OpenStreetMap cair no meio, a próxima
-      # tentativa continua de onde parou.
-      - uses: actions/cache@v4
+      # Estados já baixados nesta semana ficam guardados (mesmo se a execução falhar ou parar no prazo): a próxima
+      # execução continua de onde parou.
+      - uses: actions/cache/restore@v4
         with:
           path: saida/por_estado
           key: radares-${{ github.run_id }}
           restore-keys: radares-
 
       - name: Baixar os radares (estado por estado)
+        id: baixar
+        env:
+          RADARES_PRAZO_S: '14400'   # 4 h: para antes do limite do GitHub, guarda e continua noutra execução
         run: |
           mkdir -p saida
           find saida/por_estado -name '*.json' -mtime +6 -delete 2>/dev/null || true
+          set +e
           python3 -I tools/gera_radares.py saida/radares-br.csv.gz
+          rc=$?
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          [ $rc -eq 0 ] || [ $rc -eq 3 ]
+
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: saida/por_estado
+          key: radares-${{ github.run_id }}
+
+      - name: Continuar noutra execução
+        if: steps.baixar.outputs.rc == '3'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run radares.yml --repo "$GITHUB_REPOSITORY"
 
       - name: Conferir
+        if: steps.baixar.outputs.rc == '0'
         run: |
           n=$(zcat saida/radares-br.csv.gz | grep -vc '^#')
           echo "radares: $n"
@@ -47,6 +68,7 @@ jobs:
           test "$n" -gt 5000
 
       - name: Publicar na release "radares"
+        if: steps.baixar.outputs.rc == '0'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
