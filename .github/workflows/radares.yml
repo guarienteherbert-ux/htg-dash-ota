@@ -18,7 +18,7 @@ concurrency:
 jobs:
   gerar:
     runs-on: ubuntu-latest
-    timeout-minutes: 340
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
 
@@ -26,20 +26,43 @@ jobs:
         with:
           python-version: '3.12'
 
-      # Estados já baixados nesta semana ficam guardados (mesmo se a execução falhar ou parar no prazo): a próxima
-      # execução continua de onde parou.
+      # OpenStreetMap do Brasil inteiro num arquivo (Geofabrik, atualizado todo dia, ~2 GB): fica só no disco deste
+      # computador temporário do GitHub; o que sobe é a base pronta (~120 KB). Leva poucos minutos.
+      - name: Baixar o OpenStreetMap do Brasil (Geofabrik)
+        id: pbf
+        run: |
+          mkdir -p saida
+          pip install -q osmium
+          if curl -fsSL --retry 3 --retry-delay 30 -o brasil.osm.pbf \
+               https://download.geofabrik.de/south-america/brazil-latest.osm.pbf; then
+            ls -la brasil.osm.pbf
+            echo "ok=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "Geofabrik indisponível: usa o Overpass (estado por estado)"
+            echo "ok=0" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Gerar a base (arquivo do Geofabrik)
+        id: baixar
+        if: steps.pbf.outputs.ok == '1'
+        run: |
+          python3 -I tools/gera_radares.py --pbf brasil.osm.pbf saida/radares-br.csv.gz
+          echo "rc=0" >> "$GITHUB_OUTPUT"
+
+      # plano B (Overpass, lento): só se o Geofabrik falhar
       - uses: actions/cache/restore@v4
+        if: steps.pbf.outputs.ok != '1'
         with:
           path: saida/por_estado
           key: radares-${{ github.run_id }}
           restore-keys: radares-
 
-      - name: Baixar os radares (estado por estado)
-        id: baixar
+      - name: Gerar a base (Overpass, plano B)
+        id: overpass
+        if: steps.pbf.outputs.ok != '1'
         env:
-          RADARES_PRAZO_S: '14400'   # 4 h: para antes do limite do GitHub, guarda e continua noutra execução
+          RADARES_PRAZO_S: '14400'
         run: |
-          mkdir -p saida
           find saida/por_estado -name '*.json' -mtime +6 -delete 2>/dev/null || true
           set +e
           python3 -I tools/gera_radares.py saida/radares-br.csv.gz
@@ -48,19 +71,19 @@ jobs:
           [ $rc -eq 0 ] || [ $rc -eq 3 ]
 
       - uses: actions/cache/save@v4
-        if: always()
+        if: always() && steps.pbf.outputs.ok != '1'
         with:
           path: saida/por_estado
           key: radares-${{ github.run_id }}
 
       - name: Continuar noutra execução
-        if: steps.baixar.outputs.rc == '3'
+        if: steps.overpass.outputs.rc == '3'
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run radares.yml --repo "$GITHUB_REPOSITORY"
 
       - name: Conferir
-        if: steps.baixar.outputs.rc == '0'
+        if: steps.baixar.outputs.rc == '0' || steps.overpass.outputs.rc == '0'
         run: |
           n=$(zcat saida/radares-br.csv.gz | grep -vc '^#')
           echo "radares: $n"
@@ -68,7 +91,7 @@ jobs:
           test "$n" -gt 5000
 
       - name: Publicar na release "radares"
-        if: steps.baixar.outputs.rc == '0'
+        if: steps.baixar.outputs.rc == '0' || steps.overpass.outputs.rc == '0'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

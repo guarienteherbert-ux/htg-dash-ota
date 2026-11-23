@@ -100,6 +100,109 @@ def antt_kmz():
     return None, ''
 
 
+def do_pbf(path, antt_pts):
+    """Lê o OpenStreetMap do Brasil de um arquivo .osm.pbf (Geofabrik) em vez do Overpass: radares, relações de
+    semáforo, as ruas onde eles estão e as rodovias perto dos radares da ANTT. Devolve no formato do Overpass."""
+    import osmium
+    from osmium.filter import KeyFilter, EntityFilter
+    from osmium.osm import WAY
+    t0 = time.time()
+    cams, rels, device = {}, [], set()
+    # 1ª passada (sem coordenadas, rápida): radares e relações de fiscalização de semáforo
+    for o in osmium.FileProcessor(path).with_filter(KeyFilter('highway', 'type', 'enforcement')):
+        if o.is_node():
+            t = dict(o.tags)
+            if t.get('highway') == 'speed_camera' or t.get('enforcement') in ('red_light_camera', 'traffic_signals', 'maxspeed'):
+                cams[o.id] = {'type': 'node', 'id': o.id, 'lat': o.location.lat, 'lon': o.location.lon, 'tags': t}
+        elif o.is_relation():
+            t = dict(o.tags)
+            if t.get('type') == 'enforcement' and ('traffic_signals' in t.get('enforcement', '') or 'red_light' in t.get('enforcement', '')):
+                mem = [{'type': {'n': 'node', 'w': 'way', 'r': 'relation'}[m.type], 'ref': m.ref, 'role': m.role} for m in o.members]
+                rels.append({'type': 'relation', 'id': o.id, 'tags': t, 'members': mem})
+                device |= {m['ref'] for m in mem if m['type'] == 'node' and m['role'] == 'device'}
+    want = set(cams) | device
+    print(f'pbf: {len(cams)} radares, {len(rels)} relações de semáforo ({time.time() - t0:.0f} s)', flush=True)
+    # 2ª passada (com coordenadas): ruas com radar e rodovias a até ~40 m de um radar da ANTT
+    grade = {}
+    for i, (la, lo, _) in enumerate(antt_pts):
+        grade.setdefault((int(la * 200), int(lo * 200)), []).append(i)
+    principais = ('motorway', 'trunk', 'primary', 'secondary', 'tertiary')
+    ways, antt_ways, dev_loc = [], [], {}
+    fp = (osmium.FileProcessor(path).with_locations('sparse_mem_array')
+          .with_filter(EntityFilter(WAY)).with_filter(KeyFilter('highway')))
+    for w in fp:
+        hw = w.tags.get('highway', '')
+        refs = [n.ref for n in w.nodes]
+        tem = any(r in want for r in refs)
+        perto = False
+        if grade and hw.startswith(principais):
+            for n in w.nodes:
+                if n.location.valid() and (int(n.location.lat * 200), int(n.location.lon * 200)) in grade:
+                    perto = True
+                    break
+        if not (tem or perto):
+            continue
+        geom = [{'lat': n.location.lat, 'lon': n.location.lon} for n in w.nodes if n.location.valid()]
+        if len(geom) != len(refs):
+            continue
+        e = {'type': 'way', 'id': w.id, 'nodes': refs, 'geometry': geom, 'tags': dict(w.tags)}
+        if tem:
+            ways.append(e)
+            for r, g in zip(refs, geom):
+                if r in device:
+                    dev_loc[r] = g
+        if perto:
+            antt_ways.append(e)
+    # câmeras de semáforo sem etiqueta: a posição vem da rua
+    for r, g in dev_loc.items():
+        if r not in cams:
+            cams[r] = {'type': 'node', 'id': r, 'lat': g['lat'], 'lon': g['lon'], 'tags': {}}
+    print(f'pbf: {len(ways)} ruas com radar, {len(antt_ways)} rodovias perto da ANTT ({time.time() - t0:.0f} s)', flush=True)
+    return {'elements': list(cams.values()) + rels + ways}, antt_ways
+
+
+def antt_pontos():
+    import html, io, re, zipfile
+    b, origem = antt_kmz()
+    if not b:
+        return []
+    k = zipfile.ZipFile(io.BytesIO(b)).read('doc.kml').decode('utf-8', 'ignore')
+    pts = []
+    for p in re.findall(r'<Placemark.*?</Placemark>', k, re.S):
+        cells = [html.unescape(re.sub(r'<[^>]+>', '', c)).strip() for c in re.findall(r'<td[^>]*>(.*?)</td>', p, re.S)]
+        f = dict(zip(cells[1::2], cells[2::2]))
+        c = re.search(r'<coordinates>\s*([-\d.]+),([-\d.]+)', p)
+        if not c or f.get('situacao', 'Ativo').lower() != 'ativo':
+            continue
+        pts.append((float(c.group(2)), float(c.group(1)), speed(f.get('velocidade'))))
+    print(f'ANTT ({origem}): {len(pts)} radares ativos', flush=True)
+    return pts
+
+
+def antt_com_pistas(pts, ways):
+    out = []
+    for la, lo, lim in pts:
+        best, bd = None, 1e9
+        for w in ways:
+            g = w['geometry']
+            if abs(g[0]['lat'] - la) > 0.5 or abs(g[0]['lon'] - lo) > 0.5:
+                continue
+            for a, b2 in zip(g, g[1:]):
+                d = seg_dist(la, lo, a, b2)
+                if d < bd:
+                    bd, best = d, (w, a, b2)
+        direc = eixo = -1
+        if best and bd < 35:
+            w, a, b2 = best
+            seg = bearing((a['lat'], a['lon']), (b2['lat'], b2['lon']))
+            eixo = int(round(seg)) % 360
+            ow = w.get('tags', {}).get('oneway', 'no')
+            if ow in ('yes', '1', '-1') or w.get('tags', {}).get('highway', '').startswith('motorway'):
+                direc = eixo if ow != '-1' else (eixo + 180) % 360
+        out.append((round(la, 6), round(lo, 6), lim, direc, 0, eixo))
+    return out
+
+
 def antt():
     # radares das concessionárias: ponto, limite de carro leve e situação. O sentido vem como crescente/decrescente
     # (pelo km): a direção de bússola sai da pista do OpenStreetMap onde o radar está (rodovia duplicada = mão única).
@@ -216,6 +319,8 @@ def processa(d, so_semaforo=False):
 
 
 def main():
+    if len(sys.argv) >= 4 and sys.argv[1] == '--pbf':
+        return main_pbf(sys.argv[2], sys.argv[3])
     dest = sys.argv[1]
     ufs = [u.upper() for u in sys.argv[2:]] or UFS
     total = []
@@ -254,9 +359,14 @@ def main():
             os.environ['RADARES_VOLTA'] = str(int(os.environ.get('RADARES_VOLTA', '0')) + 1)
             os.execv(sys.executable, [sys.executable, '-I'] + sys.argv)
         sys.exit('faltaram %s (rode de novo mais tarde; os outros estados já estão guardados)' % ' '.join(faltam))
-    # radar da ANTT que o OpenStreetMap já tem (até 80 m, sentido compatível): fica o do OpenStreetMap
     antt_ids = {(x[0], x[1]) for x in (json.load(open(os.path.join(cache, 'v4_ANTT.json'))) if os.path.isfile(
         os.path.join(cache, 'v4_ANTT.json')) else [])}
+    escreve(dest, total, antt_ids)
+
+
+def escreve(dest, total, antt_ids):
+    """Junta (radar da ANTT que o OpenStreetMap já tem sai; ponto repetido vira uma linha) e grava o .csv.gz."""
+    # radar da ANTT que o OpenStreetMap já tem (até 80 m, sentido compatível): fica o do OpenStreetMap
     osm = [tuple(x) for x in total if (x[0], x[1]) not in antt_ids]
     grade = {}
     for x in osm:
@@ -289,6 +399,15 @@ def main():
         for la, lo, lim, d, tipo, eixo in total:
             f.write(f'{la},{lo},{lim},{d},{tipo},{eixo}\n')
     print(f'total: {len(total)} radares -> {dest}')
+
+
+def main_pbf(pbf, dest):
+    pts = antt_pontos()
+    d, antt_ways = do_pbf(pbf, pts)
+    total = processa(d)
+    novos = antt_com_pistas(pts, antt_ways)
+    print(f'OpenStreetMap: {len(total)} radares; ANTT: {len(novos)} ({sum(1 for x in novos if x[3] >= 0)} com direção)', flush=True)
+    escreve(dest, [tuple(x) for x in total] + novos, {(x[0], x[1]) for x in novos})
 
 
 if __name__ == '__main__':
