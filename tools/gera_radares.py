@@ -7,6 +7,8 @@ Saída: CSV comprimido (gzip), uma linha por radar:  lat,lon,limite,direcao,tipo
   direcao = rumo em graus (0 = norte) do trânsito que o radar fiscaliza; -1 = os dois sentidos/desconhecido
   tipo    = 0 radar de velocidade (inclui lombada eletrônica), 1 câmera de semáforo (avanço de sinal vermelho)
   eixo    = rumo da rua no ponto do radar (graus; -1 sem a rua): o app só avisa se a rua do carro estiver alinhada
+Também entram os radares das rodovias federais concedidas da ANTT (dados abertos, CC-BY), com a direção pela pista
+do OpenStreetMap; os que o OpenStreetMap já tem ficam só uma vez.
 A direção vem da tag direction do radar (graus, N/NE..., forward/backward em relação à rua) ou, sem ela, da rua de mão
 única onde o radar está (oneway=yes / -1). O limite vem do radar (maxspeed) ou da rua (maxspeed, :forward/:backward).
 
@@ -69,6 +71,91 @@ def semaforos_br():
          'rel["type"="enforcement"]["enforcement"~"traffic_signals|red_light"](area.a)->.r;'
          'node(r.r:"device")->.d;.d out body;.r out body;way(bn.d)["highway"];out geom;')
     return processa(overpass(q), so_semaforo=True)
+
+
+ANTT_URLS = [  # rodovias federais concedidas (ANTT, dados abertos, CC-BY): o site às vezes fica fora do ar
+    'https://dados.antt.gov.br/dataset/79d287f4-f5ca-4385-a17c-f61f53831f17/resource/'
+    '848fafad-6188-493c-8a36-1936635f29e7/download/radar.kmz',
+]
+ANTT_COPIA = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'radares', 'antt_radar.kmz')
+
+
+def antt_kmz():
+    for u in ANTT_URLS:
+        try:
+            req = urllib.request.Request(u, headers={'User-Agent': 'htg-radares/1.0'})
+            with urllib.request.urlopen(req, timeout=60) as r:
+                b = r.read()
+            if b[:2] == b'PK':
+                try:  # guarda a mais nova como cópia (o workflow publica a pasta radares/ junto)
+                    os.makedirs(os.path.dirname(ANTT_COPIA), exist_ok=True)
+                    open(ANTT_COPIA, 'wb').write(b)
+                except OSError:
+                    pass
+                return b, 'site da ANTT'
+        except Exception as e:
+            print(f'ANTT fora do ar ({e}): usando a cópia guardada', flush=True)
+    if os.path.isfile(ANTT_COPIA):
+        return open(ANTT_COPIA, 'rb').read(), 'cópia guardada'
+    return None, ''
+
+
+def antt():
+    # radares das concessionárias: ponto, limite de carro leve e situação. O sentido vem como crescente/decrescente
+    # (pelo km): a direção de bússola sai da pista do OpenStreetMap onde o radar está (rodovia duplicada = mão única).
+    import html, io, re, zipfile
+    b, origem = antt_kmz()
+    if not b:
+        return []
+    k = zipfile.ZipFile(io.BytesIO(b)).read('doc.kml').decode('utf-8', 'ignore')
+    pts = []
+    for p in re.findall(r'<Placemark.*?</Placemark>', k, re.S):
+        cells = [html.unescape(re.sub(r'<[^>]+>', '', c)).strip() for c in re.findall(r'<td[^>]*>(.*?)</td>', p, re.S)]
+        f = dict(zip(cells[1::2], cells[2::2]))
+        c = re.search(r'<coordinates>\s*([-\d.]+),([-\d.]+)', p)
+        if not c or f.get('situacao', 'Ativo').lower() != 'ativo':
+            continue
+        pts.append((float(c.group(2)), float(c.group(1)), speed(f.get('velocidade'))))
+    print(f'ANTT ({origem}): {len(pts)} radares ativos', flush=True)
+    out = []
+    for i in range(0, len(pts), 80):  # pista de cada um, em lotes
+        lote = pts[i:i + 80]
+        q = '[out:json][timeout:240];(' + ''.join(
+            f'way(around:30,{la},{lo})["highway"~"motorway|trunk|primary|secondary|tertiary"];' for la, lo, _ in lote) + ');out geom;'
+        try:
+            ways = [e for e in overpass(q)['elements'] if e['type'] == 'way']
+        except Exception as e:
+            print(f'ANTT: pistas do lote {i // 80} indisponíveis ({e})', flush=True)
+            ways = []
+        for la, lo, lim in lote:
+            best, bd = None, 1e9
+            for w in ways:
+                g = w.get('geometry') or []
+                for a, b2 in zip(g, g[1:]):
+                    d = seg_dist(la, lo, a, b2)
+                    if d < bd:
+                        bd, best = d, (w, a, b2)
+            direc = eixo = -1
+            if best and bd < 35:
+                w, a, b2 = best
+                seg = bearing((a['lat'], a['lon']), (b2['lat'], b2['lon']))
+                eixo = int(round(seg)) % 360
+                ow = w.get('tags', {}).get('oneway', 'no')
+                if ow in ('yes', '1', '-1') or w.get('tags', {}).get('highway', '').startswith('motorway'):
+                    direc = eixo if ow != '-1' else (eixo + 180) % 360
+            out.append((round(la, 6), round(lo, 6), lim, direc, 0, eixo))
+        time.sleep(3)
+    return out
+
+
+def seg_dist(la, lo, a, b):
+    # distância (m) do ponto ao segmento a-b, em plano local
+    kx = 111320 * math.cos(math.radians(la))
+    ax, ay = (a['lon'] - lo) * kx, (a['lat'] - la) * 110540
+    bx, by = (b['lon'] - lo) * kx, (b['lat'] - la) * 110540
+    dx, dy = bx - ax, by - ay
+    t = 0 if dx == dy == 0 else max(0, min(1, -(ax * dx + ay * dy) / (dx * dx + dy * dy)))
+    return math.hypot(ax + t * dx, ay + t * dy)
 
 
 def processa(d, so_semaforo=False):
@@ -138,7 +225,7 @@ def main():
     prazo = float(os.environ.get('RADARES_PRAZO_S', '0') or 0)  # GitHub: parar antes do limite e continuar depois
     inicio = float(os.environ.get('RADARES_INICIO', time.time()))
     os.environ['RADARES_INICIO'] = str(inicio)
-    for s in ufs + ['SEMAFOROS']:
+    for s in ufs + ['SEMAFOROS', 'ANTT']:
         if prazo and time.time() - inicio > prazo:
             print(f'prazo esgotado antes de {s}: o que já veio está guardado, continua na próxima execução', flush=True)
             sys.exit(3)
@@ -149,7 +236,7 @@ def main():
             total += r
             continue
         try:
-            r = semaforos_br() if s == 'SEMAFOROS' else uf(s)
+            r = semaforos_br() if s == 'SEMAFOROS' else antt() if s == 'ANTT' else uf(s)
         except Exception as e:  # servidor sobrecarregado: segue, e tenta este de novo no fim
             print(f'{s}: falhou ({e}), fica para depois', flush=True)
             faltam.append(s)
@@ -167,6 +254,26 @@ def main():
             os.environ['RADARES_VOLTA'] = str(int(os.environ.get('RADARES_VOLTA', '0')) + 1)
             os.execv(sys.executable, [sys.executable, '-I'] + sys.argv)
         sys.exit('faltaram %s (rode de novo mais tarde; os outros estados já estão guardados)' % ' '.join(faltam))
+    # radar da ANTT que o OpenStreetMap já tem (até 80 m, sentido compatível): fica o do OpenStreetMap
+    antt_ids = {(x[0], x[1]) for x in (json.load(open(os.path.join(cache, 'v4_ANTT.json'))) if os.path.isfile(
+        os.path.join(cache, 'v4_ANTT.json')) else [])}
+    osm = [tuple(x) for x in total if (x[0], x[1]) not in antt_ids]
+    grade = {}
+    for x in osm:
+        grade.setdefault((round(x[0], 2), round(x[1], 2)), []).append(x)
+
+    def ja_tem(x):
+        for di in (-0.01, 0, 0.01):
+            for dj in (-0.01, 0, 0.01):
+                for y in grade.get((round(x[0] + di, 2), round(x[1] + dj, 2)), []):
+                    dist = math.hypot((x[0] - y[0]) * 110540, (x[1] - y[1]) * 111320 * math.cos(math.radians(x[0])))
+                    if dist < 80 and (x[3] < 0 or y[3] < 0 or abs((x[3] - y[3] + 180) % 360 - 180) < 60):
+                        return True
+        return False
+    novos = [tuple(x) for x in total if (x[0], x[1]) in antt_ids and not ja_tem(x)]
+    if antt_ids:
+        print(f'ANTT: {len(novos)} radares que o OpenStreetMap não tinha', flush=True)
+    total = osm + novos
     # o mesmo ponto pode vir como radar e como câmera de semáforo: fica uma linha, com o tipo semáforo
     pontos = {}
     for la, lo, lim, d, tipo, eixo in (tuple(x) for x in total):
@@ -177,7 +284,8 @@ def main():
                          eixo if eixo >= 0 or old is None else old[5])
     total = sorted(pontos.values())
     with gzip.open(dest, 'wt', encoding='ascii') as f:
-        f.write('# radares OpenStreetMap (ODbL, (c) colaboradores do OpenStreetMap) ' + time.strftime('%Y-%m-%d') + '\n')
+        f.write('# radares OpenStreetMap (ODbL, (c) colaboradores do OpenStreetMap) ' + time.strftime('%Y-%m-%d')
+                + ' + ANTT dados abertos (CC-BY)\n')
         for la, lo, lim, d, tipo, eixo in total:
             f.write(f'{la},{lo},{lim},{d},{tipo},{eixo}\n')
     print(f'total: {len(total)} radares -> {dest}')
