@@ -2,20 +2,20 @@
 
 Apps do HTG Dash e ROMs HTG para a central K4811, lidos pelo app **HTG Atualizações** (procura uma vez por semana).
 
-Última publicação: [ota-2026.11.25-0840](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/tag/ota-2026.11.25-0840)
+Última publicação: [ota-2026.11.25-1759](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/tag/ota-2026.11.25-1759)
 
 ## Apps
 
 | App | Versão | Pacote | Baixar |
 |---|---|---|---|
-| Android System WebView | 128.0.6613.88 | `com.android.webview` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.25-0840/com.android.webview-661308801.apk) |
-| HTG Dash | 1.3.30 | `com.htg.dash.nwd.launcher` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.25-0840/com.htg.dash.nwd.launcher-34.apk) |
-| HTG Player | 0.3.1 | `com.htg.dash.nwd.player` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.25-0840/com.htg.dash.nwd.player-4.apk) |
-| HTG Atualizações | 1.4.1 | `com.htg.dash.nwd.updater` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.25-0840/com.htg.dash.nwd.updater-8.apk) |
-| Diagnóstico K4811 | 1.3 | `com.k4811.diag` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.25-0840/com.k4811.diag-4.apk) |
-| Equalizador | 2.0.2 | `com.nwd.audioset` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.25-0840/com.nwd.audioset-20270002.apk) |
-| Rádio | 1.1.0.4-htg1 | `com.nwd.radio` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.25-0840/com.nwd.radio-1110.apk) |
-| ZLINK | 6.2.0-uNFuSeD | `com.zjinnova.zlink` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.25-0840/com.zjinnova.zlink-600200.apk) |
+| Android System WebView | 128.0.6613.88 | `com.android.webview` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.25-1759/com.android.webview-661308801.apk) |
+| HTG Dash | 1.3.31 | `com.htg.dash.nwd.launcher` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.25-1759/com.htg.dash.nwd.launcher-35.apk) |
+| HTG Player | 0.3.1 | `com.htg.dash.nwd.player` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.25-1759/com.htg.dash.nwd.player-4.apk) |
+| HTG Atualizações | 1.4.1 | `com.htg.dash.nwd.updater` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.25-1759/com.htg.dash.nwd.updater-8.apk) |
+| Diagnóstico K4811 | 1.3 | `com.k4811.diag` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.25-1759/com.k4811.diag-4.apk) |
+| Equalizador | 2.0.2 | `com.nwd.audioset` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.25-1759/com.nwd.audioset-20270002.apk) |
+| Rádio | 1.1.0.4-htg1 | `com.nwd.radio` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.25-1759/com.nwd.radio-1110.apk) |
+| ZLINK | 6.2.0-uNFuSeD | `com.zjinnova.zlink` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.25-1759/com.zjinnova.zlink-600200.apk) |
 
 ## ROMs
 
