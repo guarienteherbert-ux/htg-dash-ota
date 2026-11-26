@@ -2,20 +2,20 @@
 
 Apps do HTG Dash e ROMs HTG para a central K4811, lidos pelo app **HTG Atualizações** (procura uma vez por semana).
 
-Última publicação: [ota-2026.11.26-0816](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/tag/ota-2026.11.26-0816)
+Última publicação: [ota-2026.11.26-0824](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/tag/ota-2026.11.26-0824)
 
 ## Apps
 
 | App | Versão | Pacote | Baixar |
 |---|---|---|---|
-| Android System WebView | 128.0.6613.88 | `com.android.webview` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.26-0816/com.android.webview-661308801.apk) |
-| HTG Dash | 1.3.34 | `com.htg.dash.nwd.launcher` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.26-0816/com.htg.dash.nwd.launcher-38.apk) |
-| HTG Player | 0.3.1 | `com.htg.dash.nwd.player` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.26-0816/com.htg.dash.nwd.player-4.apk) |
-| HTG Atualizações | 1.4.1 | `com.htg.dash.nwd.updater` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.26-0816/com.htg.dash.nwd.updater-8.apk) |
-| Diagnóstico K4811 | 1.3 | `com.k4811.diag` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.26-0816/com.k4811.diag-4.apk) |
-| Equalizador | 2.0.2 | `com.nwd.audioset` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.26-0816/com.nwd.audioset-20270002.apk) |
-| Rádio | 1.1.0.4-htg1 | `com.nwd.radio` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.26-0816/com.nwd.radio-1110.apk) |
-| ZLINK | 6.2.0-uNFuSeD | `com.zjinnova.zlink` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.26-0816/com.zjinnova.zlink-600200.apk) |
+| Android System WebView | 128.0.6613.88 | `com.android.webview` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.26-0824/com.android.webview-661308801.apk) |
+| HTG Dash | 1.3.34 | `com.htg.dash.nwd.launcher` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.26-0824/com.htg.dash.nwd.launcher-38.apk) |
+| HTG Player | 0.3.1 | `com.htg.dash.nwd.player` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.26-0824/com.htg.dash.nwd.player-4.apk) |
+| HTG Atualizações | 1.4.1 | `com.htg.dash.nwd.updater` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.26-0824/com.htg.dash.nwd.updater-8.apk) |
+| Diagnóstico K4811 | 1.3 | `com.k4811.diag` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.26-0824/com.k4811.diag-4.apk) |
+| Equalizador | 2.0.2 | `com.nwd.audioset` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.26-0824/com.nwd.audioset-20270002.apk) |
+| Rádio | 1.1.0.4-htg1 | `com.nwd.radio` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.26-0824/com.nwd.radio-1110.apk) |
+| ZLINK | 6.2.0-uNFuSeD | `com.zjinnova.zlink` | [APK](https://github.com/guarienteherbert-ux/htg-dash-ota/releases/download/ota-2026.11.26-0824/com.zjinnova.zlink-600200.apk) |
 
 ## ROMs
 
@@ -23,7 +23,7 @@ Apps do HTG Dash e ROMs HTG para a central K4811, lidos pelo app **HTG Atualiza�
 |---|---|---|
 | htg | 16.5 | [ROM](https://drive.usercontent.google.com/download?id=1qrjblDTDZNi1dnemUoV_5y13O0g-rx2l&export=download&confirm=t) |
 | htgcom-4gb | 8 | [ROM](https://drive.usercontent.google.com/download?id=1IWtLTXcrRMrVK-xjTXub0c6DT_AVT4ii&export=download&confirm=t) |
-| htgcom-6gb | 7 | [ROM](https://drive.usercontent.google.com/download?id=1SnGZtU6chQKv8YpXchKJUDQKyuRKFlSa&export=download&confirm=t) |
+| htgcom-6gb | 8 | [ROM](https://drive.usercontent.google.com/download?id=1PfSg8T9F6tik__u5AjxDWY68IggZiOC4&export=download&confirm=t) |
 | htgcom-vertical | v8 | [ROM](https://drive.usercontent.google.com/download?id=1fU-jh_NlZ_6gynr-2FD8mlIH_DaowPYN&export=download&confirm=t) |
 | htgleco-6gb | 4 | [ROM](https://drive.usercontent.google.com/download?id=1gOfxV87jjS18t4WPBuYH_tekS0TSauN2&export=download&confirm=t) |
 
